@@ -87,46 +87,4 @@ public:
     }
 };
 
-#include <iostream>
-#include <random>
 
-int main() {
-    std::cout << "Creating heavy neural network...\n";
-
-    neuralNetwork net;
-
-    int inputSize = 512;
-
-    // Build heavy network
-    net.layers.push_back(layer(1024, inputSize, activationFunction::ReLU));
-    net.layers.push_back(layer(1024, 1024, activationFunction::ReLU));
-    net.layers.push_back(layer(512, 1024, activationFunction::ReLU));
-    net.layers.push_back(layer(256, 512, activationFunction::ReLU));
-    net.layers.push_back(layer(128, 256, activationFunction::ReLU));
-    net.layers.push_back(layer(64, 128, activationFunction::ReLU));
-    net.layers.push_back(layer(10, 64, activationFunction::Linear));
-
-    std::cout << "Network created.\n";
-
-    // Create random input
-    std::vector<float> input(inputSize);
-    std::mt19937 rng(42);
-    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
-
-    for (int i = 0; i < inputSize; i++)
-        input[i] = dist(rng);
-
-    std::cout << "Running forward pass...\n";
-
-    std::vector<float> output = net.forward(input);
-
-    std::cout << "Output size: " << output.size() << "\n";
-    std::cout << "First few outputs:\n";
-
-    for (int i = 0; i < std::min(10, (int)output.size()); i++)
-        std::cout << output[i] << " ";
-
-    std::cout << "\nDone.\n";
-
-    return 0;
-}
