@@ -1,0 +1,47 @@
+# Build folders
+/build/
+/bin/
+/out/
+/Debug/
+/Release/
+
+# Object files
+*.o
+*.obj
+*.lo
+*.slo
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Libraries
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Makefile artifacts
+Makefile
+*.make
+
+# VSCode
+.vscode/
+
+# CLion / JetBrains
+.idea/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
