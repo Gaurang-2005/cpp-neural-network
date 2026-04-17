@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <thread>
 
@@ -13,8 +14,8 @@ public:
     size_t blockSize = 64;
     matrix() : row{0}, col{0}, mat{nullptr} {}
 
-    matrix(size_t a, size_t b): row{a}, col{b} {
-        mat = new T[row * col]{0};
+    matrix(size_t a, size_t b, double val = 0): row{a}, col{b} {
+        mat = new T[row * col]{val};
     }
 
     //copy constructor
@@ -77,7 +78,14 @@ public:
         assert(a < row && b < col);
         return mat[a * (col) + b];
     }
-
+    matrix<T> operator()(size_t a) const {
+        assert(a < col);
+        matrix<T> temp(1, col);
+        for (size_t i = 0; i < col; i++) {
+            temp.mat[i] = mat[a * col + i];
+        }
+        return temp;
+    }
     const T& operator()(size_t a, size_t b) const {
         assert(a < row && b < col);
         return mat[a * (col) + b];
@@ -107,7 +115,37 @@ public:
 
         return *this;
     } 
+    matrix<T> operator-(const matrix<T>& second) const {
+        assert(col == second.col && row == second.row);
+        matrix<T> temp(row, col);
 
+        for (int i = 0; i < row; i++) {
+            for (int j = 0; j < col; j++) {
+                temp.mat[i * col + j] = mat[i * col + j] - second.mat[i * col + j];
+            }
+        }
+
+        return temp;
+    } 
+
+    matrix<T>& operator-=(const matrix<T>& second) {
+        assert(col == second.col && row == second.row);
+
+        for (int i = 0; i < row; i++) {
+            for (int j = 0; j < col; j++) {
+                mat[i * col + j] -= second.mat[i * col + j];
+            }
+        }
+
+        return *this;
+    }     
+    matrix<T> hadamardProduct(const matrix<T>& second) const {
+        assert(col == second.col && row == second.row);
+        matrix<T> temp(row, col);
+        for (size_t i = 0; i < row * col; i++) temp.mat[i] = mat[i] * second.mat[i];
+        
+        return temp;
+    }
     void MultiplicationLoop(matrix<T>& result, const matrix<T>& second, size_t blockSize, size_t blockX1, size_t blockY1, size_t blockX2, size_t blockY2) const {
         
         size_t maxX = std::min(second.row, blockSize * (blockX2 + 1)) - blockSize * blockX2;

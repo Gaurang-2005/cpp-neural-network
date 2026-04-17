@@ -4,42 +4,34 @@
 
 enum class activationFunction {ReLU, sigmoid, Linear};
 
-class neuron {
-public:
-    int nInputs;
-    std::vector<double> weights;
-    double bias; 
-    
-    neuron(int , activationFunction);
-    std::pair<double, double> activate(activationFunction , const std::vector<double>&) const;
-    double activationDer(activationFunction, double);
-    double sumDer(const int& i, const std::vector<double>& inputs) const;
-private:
-    double Linear(double sum) const;
-    double sigmoid(double sum) const;
-    double ReLU(double sum) const;
-    double LinearDer() const;
-    double ReLUDer(double sum) const;
-    double sigmoidDer(double) const;
-};
+matrix<double> activate(activationFunction , const matrix<double>&, const matrix<double>&);
+matrix<double> activationDer(activationFunction, double);
+matrix<double> sumDer(const int& i, const std::vector<double>& inputs);
+matrix<double> Linear(const matrix<double>&);
+matrix<double> sigmoid(const matrix<double>&);
+matrix<double> ReLU(const matrix<double>&);
+matrix<double> LinearDer(const matrix<double>&);
+matrix<double> ReLUDer(const matrix<double>&);
+matrix<double> sigmoidDer(const matrix<double>&);
 
 class layer {
     int nInputs;
 public:
     activationFunction a;
-    std::vector<neuron> neuronLayer;
+    matrix<double> weights;
+    matrix<double> bias;
 
     layer(int, int, activationFunction);
-    std::pair<std::vector<double>, std::vector<double>> forward(const std::vector<double>& inputs) const;
+    std::pair<matrix<double>, matrix<double>> forward(const matrix<double>& inputs) const;
 };
 
 class neuralNetwork {
 public:
     std::vector<layer> layers;
-    std::vector<double> predict(const std::vector<double>& inputs) const;
-    std::pair<std::vector<std::vector<double>>,std::vector<std::vector<double>>> forward(const std::vector<double>& inputs) const;
-    double MSE(std::vector<double> pred, std::vector<double> targ);
-    double MSE(std::vector<std::vector<double>> pred, std::vector<std::vector<double>> targ);
-    double MSE_der(double pred, double targ, int size);
-    void fit(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& target, const int& epochs, double learningRate);
+    matrix<double> predict(const matrix<double>& inputs) const;
+    std::pair<std::vector<matrix<double>>,std::vector<matrix<double>>> forward(const matrix<double>& inputs) const;
+    double MSE_dataset(matrix<double> pred, matrix<double> targ);
+    double MSE(matrix<double> pred, matrix<double> targ);
+    matrix<double> MSE_der(matrix<double> pred, matrix<double> targ, int size);
+    void fit(const matrix<double>& inputs, const matrix<double>& target, const int& epochs, double learningRate);
 };

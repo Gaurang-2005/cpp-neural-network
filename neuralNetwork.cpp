@@ -1,192 +1,144 @@
+#include <cstddef>
 #include <random>
 #include <iostream>
 #include <stdexcept>
 #include <cassert>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "neuralNetwork.h"
 
 std::random_device rd;
 std::mt19937 rng(rd());
 
-//neuron defination
-neuron::neuron(int prevLayers, activationFunction a) : nInputs{prevLayers}, bias{0.01} {
-    if (a == activationFunction::sigmoid || a == activationFunction::Linear) {
-        double limit = std::sqrt(3.0f / nInputs);
-        std::uniform_real_distribution<double> dist(-limit, limit);
-        for (int i = 0; i < nInputs; i++) {
-            weights.push_back(dist(rng));
-        }
-    }
-    else {
-        double limit = std::sqrt(6.0f / nInputs);
-        std::uniform_real_distribution<double> dist(-limit, limit);
-        for (int i = 0; i < nInputs; i++) {
-            weights.push_back(dist(rng));
-        }
-    }
-    
-}
-
-std::pair<double, double> neuron::activate(activationFunction a, const std::vector<double>& inputs) const {
-    double sum{0};
-
-    for (int i = 0; i < nInputs; i++) {
-        sum += weights[i] * inputs[i];
-    }
-
-    sum += bias;
-
+matrix<double> activate(activationFunction a, const matrix<double>& sum) {
 
     switch (a) {
-        case activationFunction::Linear: return {sum, Linear(sum)};
-        case activationFunction::ReLU: return {sum, ReLU(sum)};
-        case activationFunction::sigmoid: return {sum, sigmoid(sum)};
+        case activationFunction::Linear: return Linear(sum);
+        case activationFunction::ReLU: return ReLU(sum);
+        case activationFunction::sigmoid: return sigmoid(sum);
     }
     assert(false);
 }
-double neuron::activationDer(activationFunction a, double sum) {
+matrix<double> activationDer(activationFunction a, const matrix<double>& sum) {
     switch (a) {
-        case activationFunction::Linear: return LinearDer();
+        case activationFunction::Linear: return LinearDer(sum);
         case activationFunction::ReLU: return ReLUDer(sum);
         case activationFunction::sigmoid: return sigmoidDer(sum);
     }
-    return 0;
+    return matrix<double>(0, 0);
 }
-double neuron::Linear(double sum) const {
+matrix<double> Linear(const matrix<double>& sum) {
     return sum;
 }
-double neuron::sigmoid(double sum) const {
-    return 1/(1 + std::exp(- sum));
+matrix<double> sigmoid(const matrix<double>& sum) {
+    matrix<double> temp(sum.rows(), 1);
+    for (size_t i = 0; i < temp.rows(); i++) temp(i, 0) = 1/(1 + std::exp(- sum(i, 0)));
+    return temp;
 }
-double neuron::ReLU(double sum) const {
-    if (sum > 0) {
-        return sum;
-    }
-    else return 0;
+matrix<double> ReLU(const matrix<double>& sum) {
+    matrix<double> temp(sum.rows(), 1);
+    for (size_t i = 0; i < temp.rows(); i++) (sum(i, 0) > 0)? temp(i, 0) = sum(i, 0):temp(i, 0) = 0;
+    return temp;
 }
-double neuron::LinearDer() const {
-    return 1;
+matrix<double> LinearDer(const matrix<double>& sum) {
+    return matrix<double>(sum.rows(), 1, 1);
 }
-double neuron::ReLUDer(double sum) const {
-    if (sum <= 0) return 0;
-    else return 1;
+matrix<double> ReLUDer(const matrix<double>& sum) {
+    matrix<double> temp(sum.rows(), 1);
+    for (size_t i = 0; i < temp.rows(); i++) (sum(i, 0) > 0)? temp(i, 0) = 1:temp(i, 0) = 0;
+    return temp;
 }
-double neuron::sigmoidDer(double sum) const {
-    double activ = sigmoid(sum);
-    return activ * (1 - activ);
+matrix<double> sigmoidDer(const matrix<double>& sum) {
+    matrix<double> activ = sigmoid(sum);
+    matrix<double> temp = (matrix<double>(sum.rows(), 1, 1) - activ);
+    return temp.hadamardProduct(activ); 
 }
-double neuron::sumDer(const int& i, const std::vector<double>& inputs) const {
 
-    if (i < int(weights.size())) return inputs[i];
-    else if (i == int(weights.size())) return 1;
-    else assert(false);
-    return 0;
-}
 //layer defination
-layer::layer(int n, int in, activationFunction b) : nInputs(in), a(b) {
+layer::layer(int n, int in, activationFunction b) : nInputs(in), a(b), weights(n, in), bias(n, 1, 0.01) {
     for (int i = 0; i < n; i++) {
-        neuronLayer.push_back(neuron(in, a));
-    }
+        if (a == activationFunction::sigmoid || a == activationFunction::Linear) {
+            double limit = std::sqrt(3.0f / nInputs);
+            std::uniform_real_distribution<double> dist(-limit, limit);
+            for (int j = 0; j < nInputs; j++) {
+                weights(i, j) = (dist(rng));
+            }
+        }
+        else {
+            double limit = std::sqrt(6.0f / nInputs);
+            std::uniform_real_distribution<double> dist(-limit, limit);
+            for (int j = 0; j < nInputs; j++) {
+                weights(i, j) = (dist(rng));
+            }
+        }          
+    }   
 }
-std::pair<std::vector<double>, std::vector<double>> layer::forward(const std::vector<double>& inputs) const {
-    assert(nInputs == int(inputs.size()));
-    std::pair<double, double> out;
-    std::vector<double> first, second;
-    for (int i = 0; i < int(neuronLayer.size()); i++) {
-        out = neuronLayer[i].activate(a, inputs);
-        first.push_back(out.first);
-        second.push_back(out.second);
-    }
-    return {first, second};
+std::pair<matrix<double>, matrix<double>> layer::forward(const matrix<double>& inputs) const {
+    assert(nInputs == int(inputs.cols()));
+    matrix<double> sum = weights * inputs + bias;
+    matrix<double> act = activate(a, sum);
+    return {sum, act};
 }
 
 //neural network
-std::vector<double> neuralNetwork::predict(const std::vector<double>& inputs) const {
+matrix<double> neuralNetwork::predict(const matrix<double>& inputs) const {
     assert(layers.size() > 0);
-    std::vector<double> res(inputs);
+    matrix<double> res = inputs;
     for (int i = 0; i < int(layers.size()); i++) {
         res = (layers[i].forward(res)).second;
     }
 
     return res;
 }
-std::pair<std::vector<std::vector<double>>,std::vector<std::vector<double>>> neuralNetwork::forward(const std::vector<double>& inputs) const {
+std::pair<std::vector<matrix<double>>,std::vector<matrix<double>>> neuralNetwork::forward(const matrix<double>& inputs) const {
     assert(layers.size() > 0);
     std::pair<std::vector<std::vector<double>>,std::vector<std::vector<double>>> output;
-    std::vector<std::vector<double>> first;
-    std::vector<std::vector<double>> second;
-    std::pair<std::vector<double>, std::vector<double>> temp1 = layers[0].forward(inputs); 
+    std::vector<matrix<double>> first;
+    std::vector<matrix<double>> second;
+    std::pair<matrix<double>, matrix<double>> temp1 = layers[0].forward(inputs); 
     second.push_back(temp1.second);
     first.push_back(temp1.first);
     for (int i = 1; i < int(layers.size()); i++) {
-        std::pair<std::vector<double>, std::vector<double>> temp = layers[i].forward(second.back());
-        second.push_back(temp.second);
-        first.push_back(temp.first);
+        temp1 = layers[i].forward(second.back());
+        second.push_back(temp1.second);
+        first.push_back(temp1.first);
     }
 
     return {first, second};
 }    
-double neuralNetwork::MSE(std::vector<double> pred, std::vector<double> targ) {
-    double err {0};
-    assert(pred.size() == targ.size());
-    for (int i = 0; i < int(pred.size()); i++) {
-        err += (pred[i] - targ[i]) * (pred[i] - targ[i]);
-    }
-
-    return err / int(pred.size());
+double neuralNetwork::MSE(matrix<double> pred, matrix<double> targ) {
+    return ((pred - targ).transpose() * (pred - targ))(0, 0) / int(pred.rows());
 }
-double neuralNetwork::MSE(std::vector<std::vector<double>> pred, std::vector<std::vector<double>> targ) {
-    double err {0};
-    assert(pred.size() == targ.size());
-    for (int i = 0; i < int(pred.size()); i++) {
-        err += MSE(pred[i], targ[i]);
-    }
-
-    return err / int(pred.size());
+double neuralNetwork::MSE_dataset(matrix<double> pred, matrix<double> targ) {
+    return ((pred - targ).transpose() * (pred - targ))(0, 0) / double(pred.cols() * pred.rows());
 }
-double neuralNetwork::MSE_der(double pred, double targ, int size) {
-    return 2.0f / size * (pred - targ); 
+matrix<double> neuralNetwork::MSE_der(matrix<double> pred, matrix<double> targ, int size) {
+    return (2.0f / size) * (pred - targ); 
 }
-void neuralNetwork::fit(const std::vector<std::vector<double>>& inputs, const std::vector<std::vector<double>>& target, const int& epochs, double learningRate) {
+void neuralNetwork::fit(const matrix<double>& inputs, const matrix<double>& target, const int& epochs, double learningRate) {
     for (int ep = 0; ep < epochs; ep++) {
-        std::vector<std::vector<double>> pred;
-        for (int i = 0; i < int(inputs.size()); i++) {
-            pred.push_back(predict(inputs[i]));
-        }
-        std::cout<<"dataset MSE at epoch " << ep << ": "<< MSE(pred, target)<<std::endl;
-        for (int i = 0; i < int(inputs.size()); i++) {
-            std::pair<std::vector<std::vector<double>>,std::vector<std::vector<double>>> out(forward(inputs[i]));
-            std::vector<std::vector<double>> sum = out.first;
-            std::vector<std::vector<double>> activ = out.second;
-            if (target[i].size() != out.second.back().size())
+        matrix<double> pred = predict(inputs.transpose());
+        assert(pred.cols() == target.cols() && pred.rows() == target.rows());
+        std::cout<<"dataset MSE at epoch " << ep << ": "<< MSE_dataset(pred, target)<<std::endl;
+        for (int i = 0; i < int(inputs.rows()); i++) {
+            std::pair<std::vector<matrix<double>>,std::vector<matrix<double>>> out = forward(inputs(i).transpose());
+            auto sum = out.first;
+            auto activ = out.second;
+            if (target(i).cols() != activ.back().rows())
                 throw std::length_error("the size of output of neural network and size of expected values is not same!!");
-            std::vector<std::vector<std::vector<double>>> updatedWeights;
-            std::vector<std::vector<double>> layerWeightsTemp;
-            std::vector<std::vector<double>> delta(activ);
-            for (int n2 = int(activ[int(activ.size() - 1)].size()) - 1; n2 >= 0; n2--) {
-                double errorDer = MSE_der(activ[int(activ.size() - 1)][n2], target[i][n2], int(activ[int(activ.size() - 1)].size()));
-                neuron temp(layers[int(activ.size() - 1)].neuronLayer[n2]);
-                double activDer = temp.activationDer(layers[int(activ.size() - 1)].a, sum[int(activ.size() - 1)][n2]);
-                delta[int(activ.size() - 1)][n2] = errorDer * activDer;
-                std::vector<double> updatedWeight;
-                for (int nw = 0; nw <= temp.nInputs; nw++) {
-                    double sumDer;
-                    if (!(int(activ.size() - 2) < 0))
-                        sumDer = temp.sumDer(nw, activ[int(activ.size() - 2)]);
-                    else {
-                        sumDer = temp.sumDer(nw, inputs[i]);
-                    }
-                    if (nw < temp.nInputs)
-                        updatedWeight.push_back(temp.weights[nw] - learningRate * errorDer * activDer * sumDer);
-                    else updatedWeight.push_back(temp.bias - learningRate * errorDer * activDer * sumDer);
+            std::vector<matrix<double>> updatedWeights;
+            matrix<double> layerWeightsTemp;
+            matrix<double> errorDer = MSE_der(activ[int(activ.size() - 1)], target(i).transpose(), int(activ[int(activ.size() - 1)].rows()));
+            matrix<double> activDer = activationDer(layers[int(activ.size() - 1)].a, sum[int(activ.size() - 1)]);
+            matrix<double> delta = errorDer.hadamardProduct(activDer);
+            matrix<double> sumDer = activ.back().transpose();
+            matrix<double> updatedWeight = layers[int(activ.size() - 1)].weights - learningRate * delta * sumDer;
+            matrix<double> updatedBias = layers[int(activ.size() - 1)].bias - learningRate * delta;
 
-                }
-                layerWeightsTemp.push_back(updatedWeight);
-            }
             updatedWeights.push_back(layerWeightsTemp);
-            for (int n1 = int(activ.size()) - 2; n1 >= 0; n1--) {
+            for (int n1 = int(layers.size()) - 2; n1 >= 0; n1--) {
                 std::vector<std::vector<double>> layerWeights;
                 for (int n2 = int(activ[n1].size()) - 1; n2 >= 0; n2--) {
                     double tempErrorDer {0};
