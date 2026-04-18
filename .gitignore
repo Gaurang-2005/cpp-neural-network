@@ -42,6 +42,12 @@ Makefile
 # Logs
 *.log
 
+# Python / benchmark artifacts (unnecessary for source control)
+.venv/
+__pycache__/
+*.py[cod]
+_mnist_cache/
+
 # OS files
 .DS_Store
 Thumbs.db

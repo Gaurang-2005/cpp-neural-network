@@ -129,53 +129,29 @@ void neuralNetwork::fit(const matrix<double>& inputs, const matrix<double>& targ
             if (target(i).cols() != activ.back().rows())
                 throw std::length_error("the size of output of neural network and size of expected values is not same!!");
             std::vector<matrix<double>> updatedWeights;
+            std::vector<matrix<double>> updatedBiases;
             matrix<double> layerWeightsTemp;
             matrix<double> errorDer = MSE_der(activ[int(activ.size() - 1)], target(i).transpose(), int(activ[int(activ.size() - 1)].rows()));
             matrix<double> activDer = activationDer(layers[int(activ.size() - 1)].a, sum[int(activ.size() - 1)]);
             matrix<double> delta = errorDer.hadamardProduct(activDer);
-            matrix<double> sumDer = activ.back().transpose();
+            matrix<double> sumDer = activ[activ.size() - 2].transpose();
             matrix<double> updatedWeight = layers[int(activ.size() - 1)].weights - learningRate * delta * sumDer;
             matrix<double> updatedBias = layers[int(activ.size() - 1)].bias - learningRate * delta;
-
-            updatedWeights.push_back(layerWeightsTemp);
+            updatedWeights.push_back(updatedWeight);
+            updatedBiases.push_back(updatedBias);
             for (int n1 = int(layers.size()) - 2; n1 >= 0; n1--) {
-                std::vector<std::vector<double>> layerWeights;
-                for (int n2 = int(activ[n1].size()) - 1; n2 >= 0; n2--) {
-                    double tempErrorDer {0};
-                    neuron temp(layers[n1].neuronLayer[n2]);
-                    for (int k = 0; k < int(sum[n1 + 1].size()); k++) {
-                        tempErrorDer += layers[n1 + 1].neuronLayer[k].weights[n2] * delta[n1 + 1][k];
-                    }
-                    double activDer = temp.activationDer(layers[n1].a, sum[n1][n2]);
-                    double errorDer = tempErrorDer;
-                    std::vector<double> updatedWeight;
-                    delta[n1][n2] = errorDer * activDer;
-                    for (int nw = 0; nw <= temp.nInputs; nw++) {
-                        double sumDer;
-                        if (!(n1 - 1 < 0))
-                            sumDer = temp.sumDer(nw, activ[n1 -1]);
-                        else {
-                            sumDer = temp.sumDer(nw, inputs[i]);
-                        }
-                        if (nw < temp.nInputs)
-                            updatedWeight.push_back(temp.weights[nw] - learningRate * errorDer * activDer * sumDer);
-                        else updatedWeight.push_back(temp.bias - learningRate * errorDer * activDer * sumDer);
-
-                    }
-                    layerWeights.push_back(updatedWeight);
-
-                }
-                updatedWeights.push_back(layerWeights);
+                delta = layers[n1 + 1].weights.transpose() * delta;
+                activDer = activationDer(layers[n1].a, sum[n1]);
+                delta = delta.hadamardProduct(activDer);
+                (n1 > 0)?sumDer = activ[n1 - 1].transpose():sumDer = inputs(i).transpose();
+                updatedWeight = layers[n1].weights - learningRate * delta * sumDer;
+                updatedBias = layers[n1].bias - learningRate * delta;
+                updatedWeights.push_back(updatedWeight);
+                updatedBiases.push_back(updatedBias);
             }
-            for (int layerI = 0; layerI < int(updatedWeights.size()); layerI++) {
-                for (int neuronI = 0; neuronI < int(updatedWeights[layerI].size()); neuronI++) {
-                    for (int weightI = 0; weightI < int(updatedWeights[layerI][neuronI].size()); weightI++) {
-                        if (weightI < int(layers[int(updatedWeights.size()) - layerI - 1].neuronLayer[int(updatedWeights[layerI].size()) - 1 - neuronI].weights.size())) {
-                            layers[int(updatedWeights.size()) - layerI - 1].neuronLayer[int(updatedWeights[layerI].size()) - 1 - neuronI].weights[weightI] = updatedWeights[layerI][neuronI][weightI];
-                        }
-                        else layers[int(updatedWeights.size()) - layerI - 1].neuronLayer[int(updatedWeights[layerI].size()) - 1 - neuronI].bias = updatedWeights[layerI][neuronI][weightI];
-                    }
-                }
+            for (int n1 = 0; n1 < int(updatedWeights.size()); n1++) {
+                layers[layers.size() - 1 - n1].weights = updatedWeights[n1];
+                layers[layers.size() - 1 - n1].bias = updatedBiases[n1];
             }
         }
     }
